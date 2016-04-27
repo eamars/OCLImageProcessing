@@ -1,1 +1,1 @@
-# OCVImageProcessing - COSC418
+# OCLImageProcessing - COSC418
