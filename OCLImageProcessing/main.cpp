@@ -12,6 +12,8 @@
 #include "utils.h"
 #include "Timer.h"
 
+#include "OCLCanny.h"
+
 using std::cerr;
 using std::cout;
 using std::string;
@@ -87,6 +89,11 @@ void GPUTest(Mat &grayImage, Timer &timer)
 #ifdef _DEBUG
 	cout << timer.getElapsedTimeInMilliSec() << " ms" << endl;
 #endif
+
+	for (int i = 0; i < 25; i++)
+	{
+		cout << gaussianFilter[i] << ", ";
+	}
 
 	// connect OCL device and load scripts
 	oclHandle handle;
@@ -346,6 +353,10 @@ int main(int argc, char **argv)
 		performanceTest(int(pow(2, power)));
 	}
 	*/
-	performanceTest(int(pow(2, 8)));
+	// performanceTest(int(pow(2, 8)));
+
+	Mat img;
+	OCLCanny(img, USING_GPU);
+
 	return 0;
 }

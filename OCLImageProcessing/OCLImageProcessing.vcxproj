@@ -149,6 +149,7 @@
     <ClCompile Include="gpu.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="ocl.cpp" />
+    <ClCompile Include="OCLCanny.cpp" />
     <ClCompile Include="Timer.cxx" />
     <ClCompile Include="utils.cpp" />
   </ItemGroup>
@@ -156,10 +157,12 @@
     <ClInclude Include="cpu.h" />
     <ClInclude Include="gpu.h" />
     <ClInclude Include="ocl.h" />
+    <ClInclude Include="OCLCanny.h" />
     <ClInclude Include="Timer.h" />
     <ClInclude Include="utils.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="canny.cl" />
     <None Include="convolve.cl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
