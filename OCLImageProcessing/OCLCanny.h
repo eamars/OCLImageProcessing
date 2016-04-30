@@ -17,6 +17,7 @@ private:
 	std::vector<cl::Device> allDevices;
 
 	// OCL devices and queues
+	cl::Platform targetPlatform;
 	cl::Device targetDevice;
 	cl::Context context;
 	cl::CommandQueue queue;
@@ -33,11 +34,38 @@ private:
 	cl::Device &selectDevice(int idx);
 	cl::Kernel LoadKernel(std::string kernelFileName, std::string kernelName);
 
+	// buffers
+	int buffer_idx = 0;
+	cl::Buffer buffers[2];
+	cl::Buffer theta;
+
+	// buffer operations
+	inline cl::Buffer &NextBuffer()
+	{
+		return buffers[buffer_idx];
+	}
+
+	inline cl::Buffer &PrevBuffer()
+	{
+		return buffers[buffer_idx ^ 1];
+	}
+
+	inline void SwapBuffer()
+	{
+		buffer_idx ^= 1;
+	}
+
+	// input and output in ocv format
+	cv::Mat inputBuffer, outputBuffer;
+
 
 public:
-	OCLCanny(cv::Mat &rawImage, bool type=USING_GPU);
-	OCLCanny(cv::UMat &rawImage, bool type=USING_GPU);
+	OCLCanny(bool type=USING_GPU);
+	void LoadImage(cv::Mat &rawImage);
+	void LoadImage(cv::UMat &rawImage);
+
 	cv::Mat getOutputImage();
+
 	void wait();
 
 	void setWorkgroupSize(int size);
@@ -46,7 +74,6 @@ public:
 	void Sobel();
 	void NonMaximaSuppression();
 	void HysteresisThresholding();
-	void Canny();
 
 	~OCLCanny();
 };

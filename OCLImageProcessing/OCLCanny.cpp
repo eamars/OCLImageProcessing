@@ -13,7 +13,7 @@ using cv::Mat;
 using cv::UMat;
 
 
-OCLCanny::OCLCanny(Mat & rawImage, bool type)
+OCLCanny::OCLCanny(bool type)
 {
 	// Initialize OCL
 	try
@@ -31,33 +31,85 @@ OCLCanny::OCLCanny(Mat & rawImage, bool type)
 		}
 
 		targetDevice = selectDevice(0);
+
+		// create OCL context
 		context = cl::Context(allDevices);
+
+		// create OCL command queue
 		queue = cl::CommandQueue(context, targetDevice);
 
 		// create and load kernels
 		gaussianBlurKernel = LoadKernel("canny.cl", "gaussian_blur");
-		sobelOperatorKernel = LoadKernel("canny.cl", "sobel_operation");
-		nonMaximaSuppressionKernel = LoadKernel("canny.cl", "non_maxima_suppression");
-		hysteresisThresholdingKernel = LoadKernel("canny.cl", "hysteresis_thresholding");
+		// sobelOperatorKernel = LoadKernel("canny.cl", "sobel_operation");
+		// nonMaximaSuppressionKernel = LoadKernel("canny.cl", "non_maxima_suppression");
+		// hysteresisThresholdingKernel = LoadKernel("canny.cl", "hysteresis_thresholding");
 
 	}
 	catch (const exception &e)
 	{
 		cerr << "Error: " << e.what() << ": " << endl;
 	}
+
+	// print all available ocl platforms
+	std::cout << "OpenCL Platforms:\n";
+	for (int idx = 0; idx < allPlatforms.size(); idx++)
+	{
+		std::cout << "[";
+		std::cout << (idx == 0 ? "*]" : " ]");
+		std::cout << allPlatforms[idx].getInfo<CL_PLATFORM_VENDOR>() << std::endl;
+
+	}
 }
 
-OCLCanny::OCLCanny(UMat & rawImage, bool type)
+void OCLCanny::LoadImage(Mat &rawImage)
+{
+	// crop image from rows and cols that to be the integer multiple of groupsize
+	// after substracting 2 from them
+
+	int rows = ((rawImage.rows - 2) / workgroup_size) * workgroup_size + 2;
+	int cols = ((rawImage.cols - 2) / workgroup_size) * workgroup_size + 2;
+	cv::Rect croppedArea(0, 0, cols, rows);
+
+	// read image
+	inputBuffer = rawImage(croppedArea).clone();
+	outputBuffer = Mat(inputBuffer.rows, inputBuffer.cols, CV_8UC1);
+
+	// setup buffers
+	NextBuffer() = cl::Buffer(
+		context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR | CL_MEM_COPY_HOST_PTR,
+		inputBuffer.rows * inputBuffer.cols * inputBuffer.elemSize(),
+		inputBuffer.data);
+
+	PrevBuffer() = cl::Buffer(
+		context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR,
+		inputBuffer.rows * inputBuffer.cols * inputBuffer.elemSize());
+
+	theta = cl::Buffer(
+		context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR,
+		inputBuffer.rows * inputBuffer.cols * inputBuffer.elemSize());
+
+	SwapBuffer();
+}
+
+void OCLCanny::LoadImage(UMat &rawImage)
 {
 	Mat img;
 	rawImage.copyTo(img);
-	OCLCanny(img, type);
+	LoadImage(img);
 }
 
 cv::Mat OCLCanny::getOutputImage()
 {
-	// dummy function
-	return cv::Mat();
+	queue.enqueueReadBuffer(
+		PrevBuffer(),
+		CL_TRUE,
+		0,
+		inputBuffer.rows * inputBuffer.cols * inputBuffer.elemSize(),
+		outputBuffer.data);
+
+	wait();
+
+	return outputBuffer;
 }
 
 void OCLCanny::wait()
@@ -72,6 +124,31 @@ void OCLCanny::setWorkgroupSize(int size)
 
 void OCLCanny::Gaussian()
 {
+	try
+	{
+		// set arguments
+		gaussianBlurKernel.setArg(0, PrevBuffer());
+		gaussianBlurKernel.setArg(1, NextBuffer());
+		gaussianBlurKernel.setArg(2, (size_t)inputBuffer.rows);
+		gaussianBlurKernel.setArg(3, (size_t)inputBuffer.cols);
+
+		// enqueue
+		queue.enqueueNDRangeKernel(
+			gaussianBlurKernel,
+			cl::NDRange(1, 1),
+			cl::NDRange(inputBuffer.rows, inputBuffer.cols),
+			cl::NDRange(workgroup_size, workgroup_size),
+			NULL
+		);
+		
+	}
+	catch (const exception &e)
+	{
+		cerr << "Error: " << e.what() << endl;
+	}
+
+	// swap the input and ouput
+	SwapBuffer();
 }
 
 void OCLCanny::Sobel()
@@ -83,10 +160,6 @@ void OCLCanny::NonMaximaSuppression()
 }
 
 void OCLCanny::HysteresisThresholding()
-{
-}
-
-void OCLCanny::Canny()
 {
 }
 

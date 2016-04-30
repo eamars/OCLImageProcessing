@@ -340,7 +340,33 @@ void performanceTest(size_t size)
 #endif
 }
 
-	
+void CannyTest(size_t size)
+{
+	// create random image
+	std::random_device rd;
+	std::mt19937 gen(rd());
+	std::normal_distribution<> d(64, 25);
+	unsigned char *pRandomImage = (unsigned char *)malloc(size * size);
+
+	for (size_t pixel = 0; pixel < size * size; pixel++)
+	{
+		pRandomImage[pixel] = (unsigned char)std::round(d(gen));
+	}
+
+	// create image in ocv format
+	Mat randomImage = Mat(size, size, CV_8UC1, pRandomImage);
+
+	// create canny instance
+	OCLCanny cannyImageProcessor(USING_GPU);
+	cannyImageProcessor.LoadImage(randomImage);
+	cannyImageProcessor.Gaussian();
+	Mat outputImage = cannyImageProcessor.getOutputImage();
+
+	cv::imshow("Title", outputImage);
+	cv::waitKey(0);
+
+	free(pRandomImage);
+}
 
 int main(int argc, char **argv)
 {
@@ -354,9 +380,8 @@ int main(int argc, char **argv)
 	}
 	*/
 	// performanceTest(int(pow(2, 8)));
-
-	Mat img;
-	OCLCanny(img, USING_GPU);
+	
+	CannyTest(int(pow(2, 9)));
 
 	return 0;
 }

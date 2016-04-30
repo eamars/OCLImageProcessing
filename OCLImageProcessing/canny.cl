@@ -31,7 +31,8 @@ __kernel void gaussian_blur(
 
 	for (int i = 0; i < 5; i++)
 		for (int j = 0; j < 5; j++)
-			sum += gaussian_kernel[i][j] * inImage[(i + row + -1)*cols + (j + col + -1)];
+			sum += gaussian_kernel[i][j] * inImage[(i + row - 1)*cols + (j + col - 1)];
 
 	outImage[pos] = min(255, max(0, sum));
 }
+
