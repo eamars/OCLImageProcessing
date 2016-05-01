@@ -1,5 +1,6 @@
 #include "OCLCanny.h"
 #include "utils.h"
+#include <cassert>
 #include <iostream>
 #include <fstream>
 
@@ -30,7 +31,7 @@ OCLCanny::OCLCanny(bool type)
 			allPlatforms[0].getDevices(CL_DEVICE_TYPE_CPU, &allDevices);
 		}
 
-		targetDevice = selectDevice(0);
+		targetDevice = allDevices[0];
 
 		// create OCL context
 		context = cl::Context(allDevices);
@@ -40,9 +41,9 @@ OCLCanny::OCLCanny(bool type)
 
 		// create and load kernels
 		gaussianBlurKernel = LoadKernel("canny.cl", "gaussian_blur");
-		// sobelOperatorKernel = LoadKernel("canny.cl", "sobel_operation");
-		// nonMaximaSuppressionKernel = LoadKernel("canny.cl", "non_maxima_suppression");
-		// hysteresisThresholdingKernel = LoadKernel("canny.cl", "hysteresis_thresholding");
+		sobelOperatorKernel = LoadKernel("canny.cl", "sobel_operation");
+		nonMaximaSuppressionKernel = LoadKernel("canny.cl", "non_maxima_suppression");
+		hysteresisThresholdingKernel = LoadKernel("canny.cl", "hysteresis_thresholding");
 
 	}
 	catch (const exception &e)
@@ -63,9 +64,6 @@ OCLCanny::OCLCanny(bool type)
 
 void OCLCanny::LoadImage(Mat &rawImage)
 {
-	// crop image from rows and cols that to be the integer multiple of groupsize
-	// after substracting 2 from them
-
 	int rows = ((rawImage.rows - 2) / workgroup_size) * workgroup_size + 2;
 	int cols = ((rawImage.cols - 2) / workgroup_size) * workgroup_size + 2;
 	cv::Rect croppedArea(0, 0, cols, rows);
@@ -109,6 +107,7 @@ cv::Mat OCLCanny::getOutputImage()
 
 	wait();
 
+	assert(outputBuffer.rows == inputBuffer.rows && outputBuffer.cols == inputBuffer.cols);
 	return outputBuffer;
 }
 
@@ -136,7 +135,7 @@ void OCLCanny::Gaussian()
 		queue.enqueueNDRangeKernel(
 			gaussianBlurKernel,
 			cl::NDRange(1, 1),
-			cl::NDRange(inputBuffer.rows, inputBuffer.cols),
+			cl::NDRange(inputBuffer.rows - 2, inputBuffer.cols - 2),
 			cl::NDRange(workgroup_size, workgroup_size),
 			NULL
 		);
@@ -153,33 +152,62 @@ void OCLCanny::Gaussian()
 
 void OCLCanny::Sobel()
 {
+	sobelOperatorKernel.setArg(0, PrevBuffer());
+	sobelOperatorKernel.setArg(1, NextBuffer());
+	sobelOperatorKernel.setArg(2, theta);
+	sobelOperatorKernel.setArg(3, (size_t)inputBuffer.rows);
+	sobelOperatorKernel.setArg(4, (size_t)inputBuffer.cols);
+
+	queue.enqueueNDRangeKernel(
+		sobelOperatorKernel,
+		cl::NDRange(1, 1),
+		cl::NDRange(inputBuffer.rows - 2, inputBuffer.cols - 2),
+		cl::NDRange(workgroup_size, workgroup_size),
+		NULL
+	);
+
+	SwapBuffer();
 }
 
 void OCLCanny::NonMaximaSuppression()
 {
+	nonMaximaSuppressionKernel.setArg(0, PrevBuffer());
+	nonMaximaSuppressionKernel.setArg(1, NextBuffer());
+	nonMaximaSuppressionKernel.setArg(2, theta);
+	nonMaximaSuppressionKernel.setArg(3, (size_t)inputBuffer.rows);
+	nonMaximaSuppressionKernel.setArg(4, (size_t)inputBuffer.cols);
+
+	queue.enqueueNDRangeKernel(
+		nonMaximaSuppressionKernel,
+		cl::NDRange(1, 1),
+		cl::NDRange(inputBuffer.rows - 2, inputBuffer.cols - 2),
+		cl::NDRange(workgroup_size, workgroup_size),
+		NULL
+	);
+
+	SwapBuffer();
 }
 
 void OCLCanny::HysteresisThresholding()
 {
+	hysteresisThresholdingKernel.setArg(0, PrevBuffer());
+	hysteresisThresholdingKernel.setArg(1, NextBuffer());
+	hysteresisThresholdingKernel.setArg(2, (size_t)inputBuffer.rows);
+	hysteresisThresholdingKernel.setArg(3, (size_t)inputBuffer.cols);
+
+	queue.enqueueNDRangeKernel(
+		hysteresisThresholdingKernel,
+		cl::NDRange(1, 1),
+		cl::NDRange(inputBuffer.rows - 2, inputBuffer.cols - 2),
+		cl::NDRange(workgroup_size, workgroup_size),
+		NULL
+	);
+
+	SwapBuffer();
 }
 
 OCLCanny::~OCLCanny()
 {
-}
-
-cl::Device & OCLCanny::selectDevice(int idx)
-{
-	if (allDevices.size() == 0)
-	{
-		throw(string("No OCL devices"));
-	}
-
-	if (allDevices.size() <= idx)
-	{
-		throw(string("Select device out of range"));
-	}
-
-	return allDevices[idx];
 }
 
 cl::Kernel OCLCanny::LoadKernel(string kernelFileName, string kernelName)
@@ -190,18 +218,16 @@ cl::Kernel OCLCanny::LoadKernel(string kernelFileName, string kernelName)
 	cl::Program program(context, sources);
 
 	// use jit compiler to build program for all available targets
-	try {
 		program.build(allDevices);
-	} catch (...)
-	{
-		// print build log
-		cerr << "Build Status:\n"
-			<< program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(targetDevice)
-			<< endl << "Build Options:\n"
-			<< program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(targetDevice)
-			<< endl << "Build Log:\n"
-			<< program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(targetDevice) << endl;
-	}
+
+	// print build log
+	cout << "Building [" << kernelName << "] in [" << kernelFileName << "]"
+		<< endl << "Build Status:\n"
+		<< program.getBuildInfo<CL_PROGRAM_BUILD_STATUS>(targetDevice)
+		<< endl << "Build Options:\n"
+		<< program.getBuildInfo<CL_PROGRAM_BUILD_OPTIONS>(targetDevice)
+		<< endl << "Build Log:\n"
+		<< program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(targetDevice) << endl;
 
 	return cl::Kernel(program, kernelName.c_str());
 }

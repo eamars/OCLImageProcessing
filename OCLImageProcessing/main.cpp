@@ -354,12 +354,18 @@ void CannyTest(size_t size)
 	}
 
 	// create image in ocv format
-	Mat randomImage = Mat(size, size, CV_8UC1, pRandomImage);
+	// Mat randomImage = Mat(size, size, CV_8UC1, pRandomImage);
+	Mat randomImage;
+	Mat realImage = cv::imread("D:\\image_samples\\Lenna.png");
+	cv::cvtColor(realImage, randomImage, cv::COLOR_BGR2GRAY);
 
 	// create canny instance
 	OCLCanny cannyImageProcessor(USING_GPU);
 	cannyImageProcessor.LoadImage(randomImage);
 	cannyImageProcessor.Gaussian();
+	cannyImageProcessor.Sobel();
+	cannyImageProcessor.NonMaximaSuppression();
+	cannyImageProcessor.HysteresisThresholding();
 	Mat outputImage = cannyImageProcessor.getOutputImage();
 
 	cv::imshow("Title", outputImage);

@@ -31,7 +31,6 @@ private:
 	// workgroup size
 	int workgroup_size = 1;
 
-	cl::Device &selectDevice(int idx);
 	cl::Kernel LoadKernel(std::string kernelFileName, std::string kernelName);
 
 	// buffers
