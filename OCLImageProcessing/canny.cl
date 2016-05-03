@@ -6,11 +6,10 @@ __constant float gaussian_kernel[5][5] = {
 	{ 0.00224214, 0.0165673, 0.0165673, 0.0165673, 0.00224214 }
 };
 
-__constant float MPI = 3.14159265f;
 __constant int sobel_gx_kernel[3][3] = {
 	{ -1, 0, 1 },
 	{ -2, 0, 2 },
-	{ -1, 0, -1 }
+	{ -1, 0, 1 }
 };
 
 __constant int sobel_gy_kernel[3][3] = {
@@ -30,6 +29,7 @@ __kernel void gaussian_blur(
 	size_t pos = row * cols + col;
 
 	for (int i = 0; i < 5; i++)
+		#pragma unroll
 		for (int j = 0; j < 5; j++)
 			sum += gaussian_kernel[i][j] * inImage[(i + row - 1)*cols + (j + col - 1)];
 
@@ -42,6 +42,7 @@ __kernel void sobel_operation(
 	__global uchar *theta,
 	size_t rows, size_t cols)
 {
+	const float MPI = 3.14159265f;
 	float sumx = 0, sumy = 0, angle = 0;
 	size_t row = get_global_id(0);
 	size_t col = get_global_id(1);
@@ -50,6 +51,7 @@ __kernel void sobel_operation(
 	// find gx and gy
 	for (int i = 0; i < 3; i++)
 	{
+		#pragma unroll
 		for (int j = 0; j < 3; j++)
 		{
 			sumx += sobel_gx_kernel[i][j] * inImage[(i + row - 1) * cols + (j + col - 1)];
@@ -57,7 +59,7 @@ __kernel void sobel_operation(
 		}
 	}
 
-	// hypot is defined as sqrt(x^2, y^2
+	// hypot is defined as sqrt(x^2, y^2)
 	outImage[pos] = min(255, max(0, (int)hypot(sumx, sumy)));
 
 	// get direction
@@ -223,14 +225,19 @@ __kernel void hysteresis_thresholding(
 	size_t col = get_global_id(1);
 	size_t pos = row * cols + col;
 
+	// in each position of (x, y), output the pixel if it is strong
 	if (inImage[pos] >= high)
 	{
 		outImage[pos] = EDGE;
 	}
+
+	// discard the pixel (x, y) if it is weak
 	else if (inImage[pos] <= low)
 	{
 		outImage[pos] = 0;
 	}
+
+	// if the pixel is a candidate, 
 	else
 	{
 		if (inImage[pos] >= median)

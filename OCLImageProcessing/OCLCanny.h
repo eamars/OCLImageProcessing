@@ -29,7 +29,7 @@ private:
 	cl::Kernel hysteresisThresholdingKernel;
 
 	// workgroup size
-	int workgroup_size = 1;
+	int workgroup_size = 16;
 
 	cl::Kernel LoadKernel(std::string kernelFileName, std::string kernelName);
 
@@ -70,7 +70,9 @@ public:
 	void setWorkgroupSize(int size);
 
 	void Gaussian();
+	cv::Mat GaussianWithCPU();
 	void Sobel();
+	cv::Mat SobelWithCPU(cv::Mat &theta);
 	void NonMaximaSuppression();
 	void HysteresisThresholding();
 

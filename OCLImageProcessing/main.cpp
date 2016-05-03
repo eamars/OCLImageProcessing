@@ -355,20 +355,27 @@ void CannyTest(size_t size)
 
 	// create image in ocv format
 	// Mat randomImage = Mat(size, size, CV_8UC1, pRandomImage);
-	Mat randomImage;
+	Mat randomImage, outputImage;
 	Mat realImage = cv::imread("D:\\image_samples\\Lenna.png");
 	cv::cvtColor(realImage, randomImage, cv::COLOR_BGR2GRAY);
 
+	Mat gaussianImage, sobelImage, thetaImage;
 	// create canny instance
 	OCLCanny cannyImageProcessor(USING_GPU);
 	cannyImageProcessor.LoadImage(randomImage);
-	cannyImageProcessor.Gaussian();
-	cannyImageProcessor.Sobel();
-	cannyImageProcessor.NonMaximaSuppression();
-	cannyImageProcessor.HysteresisThresholding();
-	Mat outputImage = cannyImageProcessor.getOutputImage();
 
-	cv::imshow("Title", outputImage);
+	gaussianImage = cannyImageProcessor.GaussianWithCPU();
+	cannyImageProcessor.Gaussian();
+
+	sobelImage = cannyImageProcessor.SobelWithCPU(thetaImage); // TODO: allocate memory for theta!
+	cannyImageProcessor.Sobel();
+	// cannyImageProcessor.NonMaximaSuppression();
+	// cannyImageProcessor.HysteresisThresholding();
+	outputImage = cannyImageProcessor.getOutputImage();
+
+
+	cv::imshow("Title", gaussianImage);
+	cv::imshow("Title2", sobelImage);
 	cv::waitKey(0);
 
 	free(pRandomImage);

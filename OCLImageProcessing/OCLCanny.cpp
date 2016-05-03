@@ -1,11 +1,16 @@
 #include "OCLCanny.h"
 #include "utils.h"
+#include "cpu.h"
 #include <cassert>
 #include <iostream>
 #include <fstream>
+#include <algorithm>
+#include <cmath>
 
 using std::string;
 using std::ifstream;
+using std::min;
+using std::max;
 using std::cerr;
 using std::cout;
 using std::endl;
@@ -25,10 +30,12 @@ OCLCanny::OCLCanny(bool type)
 		if (type == USING_GPU)
 		{
 			allPlatforms[0].getDevices(CL_DEVICE_TYPE_GPU, &allDevices);
+			setWorkgroupSize(16);
 		}
 		else if (type == USING_CPU)
 		{
 			allPlatforms[0].getDevices(CL_DEVICE_TYPE_CPU, &allDevices);
+			setWorkgroupSize(1);
 		}
 
 		targetDevice = allDevices[0];
@@ -150,6 +157,44 @@ void OCLCanny::Gaussian()
 	SwapBuffer();
 }
 
+Mat OCLCanny::GaussianWithCPU()
+{
+	const float gaussian_kernel[5][5] = {
+		{ 0.00224214, 0.0165673, 0.0165673, 0.0165673, 0.00224214 },
+		{ 0.0165673, 0.0450347, 0.122417, 0.0450347, 0.0165673 },
+		{ 0.0165673, 0.122417, 0.122417, 0.122417, 0.0165673 },
+		{ 0.0165673, 0.0450347, 0.122417, 0.0450347, 0.0165673 },
+		{ 0.00224214, 0.0165673, 0.0165673, 0.0165673, 0.00224214 }
+	};
+
+	unsigned char *pOutputImage = (unsigned char *)malloc(inputBuffer.rows * inputBuffer.cols * inputBuffer.elemSize());
+
+	// image
+	for (int row = 1; row < inputBuffer.rows; row++)
+	{
+		for (int col = 1; col < inputBuffer.cols; col++)
+		{
+			int pos = row * inputBuffer.cols + col;
+			int sum = 0;
+
+			// kernel
+			for (int i = 0; i < 5; i++)
+			{
+				for (int j = 0; j < 5; j++)
+				{
+					int idx = (i + row - 1)*inputBuffer.cols + (j + col - 1);
+					sum += gaussian_kernel[i][j] * inputBuffer.data[idx];
+				}
+			}
+
+			pOutputImage[pos] = min(255, max(0, sum));
+		}
+	}
+	return Mat(inputBuffer.rows, inputBuffer.cols, CV_8UC1, pOutputImage);
+}
+
+
+
 void OCLCanny::Sobel()
 {
 	sobelOperatorKernel.setArg(0, PrevBuffer());
@@ -167,6 +212,108 @@ void OCLCanny::Sobel()
 	);
 
 	SwapBuffer();
+}
+
+cv::Mat OCLCanny::SobelWithCPU(Mat & theta)
+{
+	const float MPI = 3.14159265f;
+	const int sobel_gx_kernel[3][3] = {
+		{ -1, 0, 1 },
+		{ -2, 0, 2 },
+		{ -1, 0, 1 }
+	};
+
+	const int sobel_gy_kernel[3][3] = {
+		{ -1,-2,-1 },
+		{ 0, 0, 0 },
+		{ 1, 2, 1 }
+	};
+
+	unsigned char *pOutputImage = (unsigned char *)malloc(inputBuffer.rows * inputBuffer.cols * inputBuffer.elemSize());
+
+	// image
+	for (int row = 1; row < inputBuffer.rows; row++)
+	{
+		for (int col = 1; col < inputBuffer.cols; col++)
+		{
+			float sumx = 0, sumy = 0, angle = 0;
+			int pos = row * inputBuffer.cols + col;
+			int sum = 0;
+
+			// kernel
+			for (int i = 0; i < 3; i++)
+			{
+				for (int j = 0; j < 3; j++)
+				{
+					int idx = (i + row - 1)*inputBuffer.cols + (j + col - 1);
+					sumx += sobel_gx_kernel[i][j] * inputBuffer.data[idx];
+					sumy += sobel_gy_kernel[i][j] * inputBuffer.data[idx];
+				}
+			}
+
+			pOutputImage[pos] = min(255, max(0, (int)hypot(sumx, sumy)));
+
+			// get direction
+			angle = atan2(sumy, sumx);
+
+			// if angle is negative, then shift by 2PI
+			if (angle < 0.0f)
+			{
+				angle = fmod((angle + 2 * MPI), (2 * MPI));
+			}
+
+			// round angles to 0, 45, 90 and 135 degs
+			// angles are equally likely to distribute between 
+			// 0~PI and PI~2PI
+			if (angle <= MPI)
+			{
+				if (angle <= MPI / 8)
+				{
+					theta.data[pos] = 0;
+				}
+				else if (angle <= 3 * MPI / 8)
+				{
+					theta.data[pos] = 45;
+				}
+				else if (angle <= 5 * MPI / 8)
+				{
+					theta.data[pos] = 90;
+				}
+				else if (angle <= 7 * MPI / 8)
+				{
+					theta.data[pos] = 135;
+				}
+				else
+				{
+					theta.data[pos] = 0;
+				}
+			}
+			else
+			{
+				if (angle <= 9 * MPI / 8)
+				{
+					theta.data[pos] = 0;
+				}
+				else if (angle <= 11 * MPI / 8)
+				{
+					theta.data[pos] = 45;
+				}
+				else if (angle <= 13 * MPI / 8)
+				{
+					theta.data[pos] = 90;
+				}
+				else if (angle <= 15 * MPI / 8)
+				{
+					theta.data[pos] = 135;
+				}
+				else
+				{
+					theta.data[pos] = 0;
+				}
+			}
+		}
+	}
+	return Mat(inputBuffer.rows, inputBuffer.cols, CV_8UC1, pOutputImage);
 }
 
 void OCLCanny::NonMaximaSuppression()
