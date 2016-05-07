@@ -6,10 +6,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/core/ocl.hpp>
 
-#define USING_CPU false
-#define USING_GPU true
-
-class OCLCanny
+class OCLCanny 
 {
 private:
 	// OCL device related
@@ -59,9 +56,8 @@ private:
 
 
 public:
-	OCLCanny(bool type=USING_GPU);
-	void LoadImage(cv::Mat &rawImage);
-	void LoadImage(cv::UMat &rawImage);
+	OCLCanny();
+	void LoadOCVImage(cv::Mat &rawImage);
 
 	cv::Mat getOutputImage();
 
@@ -70,9 +66,7 @@ public:
 	void setWorkgroupSize(int size);
 
 	void Gaussian();
-	cv::Mat GaussianWithCPU();
 	void Sobel();
-	cv::Mat SobelWithCPU(cv::Mat &theta);
 	void NonMaximaSuppression();
 	void HysteresisThresholding();
 

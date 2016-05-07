@@ -145,18 +145,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="cpu.cpp" />
-    <ClCompile Include="gpu.cpp" />
+    <ClCompile Include="CPUCanny.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="ocl.cpp" />
     <ClCompile Include="OCLCanny.cpp" />
     <ClCompile Include="Timer.cxx" />
     <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="cpu.h" />
-    <ClInclude Include="gpu.h" />
-    <ClInclude Include="ocl.h" />
+    <ClInclude Include="CPUCanny.h" />
     <ClInclude Include="OCLCanny.h" />
     <ClInclude Include="Timer.h" />
     <ClInclude Include="utils.h" />

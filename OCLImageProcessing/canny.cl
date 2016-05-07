@@ -1,4 +1,4 @@
-__constant float gaussian_kernel[5][5] = {
+﻿__constant float gaussian_kernel[5][5] = {
 	{ 0.00224214, 0.0165673, 0.0165673, 0.0165673, 0.00224214 },
 	{ 0.0165673, 0.0450347, 0.122417, 0.0450347, 0.0165673 },
 	{ 0.0165673, 0.122417, 0.122417, 0.122417, 0.0165673 },
@@ -150,7 +150,7 @@ __kernel void non_maxima_suppression(
 		case 0:
 		{
 			// supress current pixel if neighbour has larger magnitude
-			if (inImage[pos] <= inImage[E] || inImage[pos] <= inImage[W])
+			if (inImage[pos] < inImage[E] || inImage[pos] < inImage[W])
 			{
 				outImage[pos] = 0;
 			}
@@ -165,7 +165,7 @@ __kernel void non_maxima_suppression(
 
 		case 45:
 		{
-			if (inImage[pos] <= inImage[NE] || inImage[pos] <= inImage[SW])
+			if (inImage[pos] < inImage[NE] || inImage[pos] < inImage[SW])
 			{
 				outImage[pos] = 0;
 			}
@@ -178,7 +178,7 @@ __kernel void non_maxima_suppression(
 
 		case 90:
 		{
-			if (inImage[pos] <= inImage[N] || inImage[pos] <= inImage[S])
+			if (inImage[pos] < inImage[N] || inImage[pos] < inImage[S])
 			{
 				outImage[pos] = 0;
 			}
@@ -191,7 +191,7 @@ __kernel void non_maxima_suppression(
 
 		case 135:
 		{
-			if (inImage[pos] <= inImage[NW] || inImage[pos] <= inImage[SE])
+			if (inImage[pos] < inImage[NW] || inImage[pos] < inImage[SE])
 			{
 				outImage[pos] = 0;
 			}
@@ -216,9 +216,9 @@ __kernel void hysteresis_thresholding(
 	size_t rows, size_t cols
 )
 {
-	float low = 10.0f;
-	float high = 70.0f;
-	float median = (low + high) / 2;
+	uchar low = 50;
+	uchar high = 80;
+	uchar median = (low + high) / 2;
 	const uchar EDGE = 255;
 
 	size_t row = get_global_id(0);
@@ -226,13 +226,13 @@ __kernel void hysteresis_thresholding(
 	size_t pos = row * cols + col;
 
 	// in each position of (x, y), output the pixel if it is strong
-	if (inImage[pos] >= high)
+	if (inImage[pos] > high)
 	{
 		outImage[pos] = EDGE;
 	}
 
 	// discard the pixel (x, y) if it is weak
-	else if (inImage[pos] <= low)
+	else if (inImage[pos] < low)
 	{
 		outImage[pos] = 0;
 	}
