@@ -217,7 +217,7 @@ void CannyDetailGPUTest(size_t size)
 void CannyRealImageTest()
 {
 #define DEBUG_PRINT
-	Mat rawImage = cv::imread("D:\\image_samples\\machine.jpg");
+	Mat rawImage = cv::imread("D:\\\machine.jpg");
 	Mat input;
 	cv::cvtColor(rawImage, input, cv::COLOR_BGR2GRAY);
 
@@ -239,8 +239,8 @@ int main(int argc, char **argv)
 {
 
 	
-	CannyDetailGPUTest(int(pow(2, 12)));
-	CannyDetailCPUTest(int(pow(2, 12)));
+	CannyDetailGPUTest(int(pow(2, 8)));
+	CannyDetailCPUTest(int(pow(2, 8)));
 
 	return 0;
 }
