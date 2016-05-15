@@ -24,5 +24,7 @@ public:
 	cv::Mat Sobel();
 	cv::Mat NonMaximaSuppression();
 	cv::Mat HysteresisThresholding();
+
+	cv::Mat getTheta();
 };
 

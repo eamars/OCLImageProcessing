@@ -217,11 +217,11 @@ void CannyDetailGPUTest(size_t size)
 void CannyRealImageTest()
 {
 #define DEBUG_PRINT
-	Mat rawImage = cv::imread("D:\\\machine.jpg");
+	Mat rawImage = cv::imread("D:\\image_samples\\machine.jpg");
 	Mat input;
 	cv::cvtColor(rawImage, input, cv::COLOR_BGR2GRAY);
 
-	OCLCanny imageProcessor;
+	CPUCanny imageProcessor;
 	imageProcessor.LoadOCVImage(input);
 
 	imageProcessor.Gaussian();
@@ -229,18 +229,31 @@ void CannyRealImageTest()
 	imageProcessor.NonMaximaSuppression();
 	imageProcessor.HysteresisThresholding();
 
-	Mat output = imageProcessor.getOutputImage();
+	Mat output = imageProcessor.getTheta();
+
+
 	cv::imshow("Title2", input);
 	cv::imshow("Title", output);
 	cv::waitKey(0);
+
+#if 0
+	vector<int> compression_params;
+	compression_params.push_back(CV_IMWRITE_PNG_COMPRESSION);
+	compression_params.push_back(9);
+	try {
+		cv::imwrite("D:\\theta.png", output, compression_params);
+	}
+	catch (const std::exception ex) {
+		std::cout << "Exception converting image to PNG format: %s\n" << ex.what();
+	}
+#endif
 }
 
 int main(int argc, char **argv)
 {
 
 	
-	CannyDetailGPUTest(int(pow(2, 8)));
-	CannyDetailCPUTest(int(pow(2, 8)));
+	CannyRealImageTest();
 
 	return 0;
 }

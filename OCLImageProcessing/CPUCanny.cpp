@@ -11,6 +11,8 @@ using std::get;
 using cv::Mat;
 using std::stack;
 using std::tuple;
+using cv::Scalar;
+using cv::Vec3b;
 
 CPUCanny::CPUCanny()
 {
@@ -381,5 +383,52 @@ cv::Mat CPUCanny::HysteresisThresholding()
 
 
 	return Mat(inputBuffer.rows, inputBuffer.cols, CV_8UC1, out);
+}
+
+Mat CPUCanny::getTheta()
+{
+	if (theta == NULL)
+	{
+		return Mat();
+	}
+
+	// create new empty image
+	Mat RGBTheta(inputBuffer.rows, inputBuffer.cols, CV_8UC3, Scalar(0, 0, 0));
+
+	// fill with direction data
+	for (int row = 0; row < inputBuffer.rows; row++)
+	{
+		for (int col = 0; col < inputBuffer.cols; col++)
+		{
+			int pos = row * inputBuffer.cols + col;
+			switch (theta[pos])
+			{
+				case 0:
+				{
+					break;
+				}
+				case 45:
+				{
+					RGBTheta.at<Vec3b>(row, col) = Vec3b(0, 255, 0);
+					break;
+				}
+				case 90:
+				{
+					RGBTheta.at<Vec3b>(row, col) = Vec3b(255, 0, 0);
+					break;
+				}
+				case 135:
+				{
+					RGBTheta.at<Vec3b>(row, col) = Vec3b(0, 0, 255);
+					break;
+				}
+				default:
+				{
+					break;
+				}
+			}
+		}
+	}
+	return RGBTheta;
 }
 
